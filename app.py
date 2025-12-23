@@ -185,19 +185,60 @@ try:
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ==================== FOLLOW UP (Opsional bisa ditambah lagi) ====================
+    # ==================== PELANGGAN PRIORITAS FOLLOW UP ====================
     with st.container():
         st.markdown("<div class='card'>", unsafe_allow_html=True)
         st.subheader("📲 Pelanggan Prioritas Follow Up")
+
         if not perlu_servis.empty:
             st.info(f"Ada **{len(perlu_servis):,} pelanggan** yang sudah lebih dari 60 hari belum servis. Siap untuk reminder WhatsApp!")
-            # Bisa ditambah tabel link WA seperti sebelumnya jika perlu
+
+            # Buat link WhatsApp
+            def create_wa_link(row):
+                pesan = f"Halo {row['Nama']}, motor {row.get('Market Name', 'Anda')} plat {row['Nopol']} sudah waktunya servis rutin nih! Terakhir servis tanggal {row['Tgl Service Terakhir'].strftime('%d %B %Y')}. Yuk agendakan ke bengkel secepatnya ya, ada promo menarik! 🛵💨"
+                nomor = str(row['No HP1']).replace('.0', '').strip()
+                if nomor.startswith('0'):
+                    nomor = '62' + nomor[1:]
+                elif not nomor.startswith('62'):
+                    nomor = '62' + nomor
+                return f"https://wa.me/{nomor}?text={pesan.replace(' ', '%20').replace('!', '%21')}"
+
+            perlu_servis['Link WA'] = perlu_servis.apply(create_wa_link, axis=1)
+
+            # Tabel ringkas (top 50 terlama dulu)
+            display_df = perlu_servis[['Nama', 'Nopol', 'Market Name', 'Tgl Service Terakhir', 'Terlambat (Hari)', 'Link WA']] \
+                         .sort_values(by='Terlambat (Hari)', ascending=False).head(100)  # Batasi 100 biar ga terlalu panjang
+
+            st.write("**Prioritas tertinggi (paling lama belum servis) di atas.** Klik tombol untuk langsung chat WA:")
+
+            st.data_editor(
+                display_df,
+                column_config={
+                    "Link WA": st.column_config.LinkColumn(
+                        "Kirim Reminder WA 📱",
+                        display_text="Chat Sekarang 🟢",
+                        width="medium"
+                    ),
+                    "Tgl Service Terakhir": st.column_config.DateColumn("Terakhir Servis"),
+                    "Terlambat (Hari)": st.column_config.NumberColumn("Keterlambatan", format="%d hari")
+                },
+                hide_index=True,
+                use_container_width=True
+            )
+
+            # Tombol download CSV semua data follow up
+            csv = perlu_servis[['Nama', 'No HP1', 'Nopol', 'Market Name', 'Tgl Service Terakhir', 'Terlambat (Hari)']].to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Download Semua Data Follow Up (CSV)",
+                data=csv,
+                file_name=f"follow_up_perlu_servis_{hari_ini.strftime('%Y%m%d')}.csv",
+                mime='text/csv'
+            )
+
         else:
-            st.success("🎉 Semua pelanggan rutin servis dalam 60 hari terakhir!")
+            st.success("🎉 **Mantap!** Tidak ada pelanggan yang telat servis lebih dari 60 hari.")
+
         st.markdown("</div>", unsafe_allow_html=True)
 
-except Exception as e:
-    st.error(f"Error: {e}")
-    st.info("Pastikan Google Sheet dibagikan dengan 'Anyone with the link' dan kolom sesuai.")
 
 

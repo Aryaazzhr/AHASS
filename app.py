@@ -89,7 +89,7 @@ try:
     perlu_servis = df[df['Tgl Service Terakhir'] <= batas_servis].copy()
     perlu_servis['Terlambat (Hari)'] = (hari_ini - perlu_servis['Tgl Service Terakhir']).dt.days
 
-    # ==================== METRIC CARDS (Glass Style) ====================
+    # ==================== METRIC CARDS ====================
     with st.container():
         st.markdown("<div class='card'>", unsafe_allow_html=True)
         col1, col2, col3, col4 = st.columns(4)
@@ -134,9 +134,9 @@ try:
                 </div>
             """, unsafe_allow_html=True)
         
-        st.markdown("</div>", unsafe_allow_html=True)  # <--- Ini yang benar, tanpa True ekstra!
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    # ==================== VISUALISASI RINGKAS ====================
+    # ==================== INSIGHT CEPAT ====================
     with st.container():
         st.markdown("<div class='card'>", unsafe_allow_html=True)
         st.subheader("📊 Insight Cepat")
@@ -145,24 +145,31 @@ try:
 
         with c1:
             top_model = df['Market Name'].value_counts().head(1)
+            model_name = top_model.index[0] if not top_model.empty else "-"
+            model_count = top_model.values[0] if not top_model.empty else 0
             st.markdown(f"""
                 <div class='metric-card' style='background: linear-gradient(135deg, rgba(255, 100, 100, 0.3), rgba(255, 150, 50, 0.3)); height:180px;'>
                     <div style='font-size:1.1rem; color:#ddd;'>🏍️ Model Terbanyak</div>
-                    <div style='font-size:1.8rem; font-weight:700; margin:16px 0;'>{top_model.index[0]}</div>
-                    <div style='color:#aaa;'>{top_model.values[0]:,} unit</div>
+                    <div style='font-size:1.8rem; font-weight:700; margin:16px 0;'>{model_name}</div>
+                    <div style='color:#aaa;'>{model_count:,} unit</div>
                 </div>
             """, unsafe_allow_html=True)
 
         with c2:
             if 'Kecamatan' in df.columns:
                 top_kec = df['Kecamatan'].value_counts().head(1)
-                st.markdown(f"""
-                    <div class='metric-card' style='background: linear-gradient(135deg, rgba(100, 200, 255, 0.3), rgba(50, 100, 200, 0.4)); height:180px;'>
-                        <div style='font-size:1.1rem; color:#ddd;'>📍 Kecamatan Dominan</div>
-                        <div style='font-size:1.8rem; font-weight:700; margin:16px 0;'>{top_kec.index[0]}</div>
-                        <div style='color:#aaa;'>{top_kec.values[0]:,} pelanggan</div>
-                    </div>
-                """, unsafe_allow_html=True)
+                kec_name = top_kec.index[0]
+                kec_count = top_kec.values[0]
+            else:
+                kec_name = "-"
+                kec_count = 0
+            st.markdown(f"""
+                <div class='metric-card' style='background: linear-gradient(135deg, rgba(100, 200, 255, 0.3), rgba(50, 100, 200, 0.4)); height:180px;'>
+                    <div style='font-size:1.1rem; color:#ddd;'>📍 Kecamatan Dominan</div>
+                    <div style='font-size:1.8rem; font-weight:700; margin:16px 0;'>{kec_name}</div>
+                    <div style='color:#aaa;'>{kec_count:,} pelanggan</div>
+                </div>
+            """, unsafe_allow_html=True)
 
         with c3:
             umur_rata = (datetime.now().year - df['Tahun Rakit'].mean()) if not df['Tahun Rakit'].isnull().all() else 0
@@ -174,15 +181,6 @@ try:
                 </div>
             """, unsafe_allow_html=True)
 
-        # Tren Bulanan Kecil
-        st.markdown("<br>", unsafe_allow_html=True)
-        df_trend = df.resample('M', on='Tgl Service Terakhir').size().reset_index(name='Jumlah')
-        fig_trend = px.area(df_trend, x='Tgl Service Terakhir', y='Jumlah',
-                            color_discrete_sequence=['#ff4b4b'], height=300)
-        fig_trend.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-                                font_color='#ffffff', margin=dict(l=20,r=20,t=40,b=20))
-        st.plotly_chart(fig_trend, use_container_width=True)
-
         st.markdown("</div>", unsafe_allow_html=True)
 
     # ==================== PELANGGAN PRIORITAS FOLLOW UP ====================
@@ -193,7 +191,6 @@ try:
         if not perlu_servis.empty:
             st.info(f"Ada **{len(perlu_servis):,} pelanggan** yang sudah lebih dari 60 hari belum servis. Siap untuk reminder WhatsApp!")
 
-            # Buat link WhatsApp
             def create_wa_link(row):
                 pesan = f"Halo {row['Nama']}, motor {row.get('Market Name', 'Anda')} plat {row['Nopol']} sudah waktunya servis rutin nih! Terakhir servis tanggal {row['Tgl Service Terakhir'].strftime('%d %B %Y')}. Yuk agendakan ke bengkel secepatnya ya, ada promo menarik! 🛵💨"
                 nomor = str(row['No HP1']).replace('.0', '').strip()
@@ -201,13 +198,13 @@ try:
                     nomor = '62' + nomor[1:]
                 elif not nomor.startswith('62'):
                     nomor = '62' + nomor
-                return f"https://wa.me/{nomor}?text={pesan.replace(' ', '%20').replace('!', '%21')}"
+                encoded_pesan = pesan.replace(' ', '%20').replace('!', '%21').replace('?', '%3F')
+                return f"https://wa.me/{nomor}?text={encoded_pesan}"
 
             perlu_servis['Link WA'] = perlu_servis.apply(create_wa_link, axis=1)
 
-            # Tabel ringkas (top 50 terlama dulu)
             display_df = perlu_servis[['Nama', 'Nopol', 'Market Name', 'Tgl Service Terakhir', 'Terlambat (Hari)', 'Link WA']] \
-                         .sort_values(by='Terlambat (Hari)', ascending=False).head(100)  # Batasi 100 biar ga terlalu panjang
+                         .sort_values(by='Terlambat (Hari)', ascending=False).head(100)
 
             st.write("**Prioritas tertinggi (paling lama belum servis) di atas.** Klik tombol untuk langsung chat WA:")
 
@@ -226,7 +223,6 @@ try:
                 use_container_width=True
             )
 
-            # Tombol download CSV semua data follow up
             csv = perlu_servis[['Nama', 'No HP1', 'Nopol', 'Market Name', 'Tgl Service Terakhir', 'Terlambat (Hari)']].to_csv(index=False).encode('utf-8')
             st.download_button(
                 label="📥 Download Semua Data Follow Up (CSV)",
@@ -234,11 +230,11 @@ try:
                 file_name=f"follow_up_perlu_servis_{hari_ini.strftime('%Y%m%d')}.csv",
                 mime='text/csv'
             )
-
         else:
             st.success("🎉 **Mantap!** Tidak ada pelanggan yang telat servis lebih dari 60 hari.")
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-
-
+except Exception as e:
+    st.error(f"⚠️ Error saat memuat data: {e}")
+    st.info("Pastikan Google Sheet dibagikan dengan 'Anyone with the link' dan nama kolom sesuai (Nama, Nopol, Market Name, Tgl Service Terakhir, No HP1, dll).")

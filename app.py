@@ -85,7 +85,7 @@ try:
     df['Tahun Rakit'] = pd.to_numeric(df['Tahun Rakit'], errors='coerce')
 
     hari_ini = datetime.now()
-    batas_servis = hari_ini - timedelta(days=60)
+    batas_servis = hari_ini - timedelta(days=59)
     perlu_servis = df[df['Tgl Service Terakhir'] <= batas_servis].copy()
     perlu_servis['Terlambat (Hari)'] = (hari_ini - perlu_servis['Tgl Service Terakhir']).dt.days
 
@@ -238,3 +238,4 @@ try:
 except Exception as e:
     st.error(f"⚠️ Error saat memuat data: {e}")
     st.info("Pastikan Google Sheet dibagikan dengan 'Anyone with the link' dan nama kolom sesuai (Nama, Nopol, Market Name, Tgl Service Terakhir, No HP1, dll).")
+

@@ -4,212 +4,197 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime, timedelta
 
-# ==================== CUSTOM CSS - Gaya Medium.com + Glassmorphism Ringan ====================
+# ==================== CUSTOM CSS - Glassmorphism Premium Dark ====================
 st.markdown("""
 <style>
     .main {
-        background-color: #f8f9fa;
-    }
-    .stApp {
-        max-width: 1200px;
-        margin: 0 auto;
+        background: linear-gradient(135deg, #0f0f0f, #1a1a1a);
+        color: #ffffff;
     }
     .card {
-        background: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(10px);
-        border-radius: 16px;
+        background: rgba(30, 30, 40, 0.6);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
         padding: 24px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
         margin-bottom: 24px;
     }
-    .title {
+    .metric-card {
+        background: linear-gradient(135deg, rgba(100, 50, 200, 0.3), rgba(50, 150, 200, 0.3));
+        backdrop-filter: blur(12px);
+        border-radius: 20px;
+        padding: 20px;
+        text-align: center;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    }
+    .metric-label {
+        font-size: 1rem;
+        color: #aaaaaa;
+        margin-bottom: 8px;
+    }
+    .metric-value {
         font-size: 2.8rem;
         font-weight: 700;
-        color: #111111;
+        color: #ffffff;
+    }
+    .metric-delta {
+        font-size: 1rem;
+        color: #4ade80;
+        margin-top: 8px;
+    }
+    .title {
+        font-size: 3rem;
+        font-weight: 800;
+        background: linear-gradient(90deg, #ff4b4b, #ff8a8a);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
         text-align: center;
         margin-bottom: 8px;
     }
     .subtitle {
         font-size: 1.2rem;
-        color: #555555;
+        color: #bbbbbb;
         text-align: center;
         margin-bottom: 40px;
     }
     h2, h3 {
-        color: #111111;
+        color: #ffffff;
         font-weight: 600;
-    }
-    .metric-label {
-        font-size: 1rem;
-        color: #666666;
-    }
-    .metric-value {
-        font-size: 2.2rem;
-        font-weight: 700;
-        color: #FF4B4B;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== KONFIGURASI HALAMAN ====================
-st.set_page_config(page_title="Dashboard Bengkel Pro", layout="wide")
+# ==================== KONFIGURASI ====================
+st.set_page_config(page_title="Bengkel Pro Dashboard", layout="wide")
 
 # ==================== HEADER ====================
 st.markdown('<div class="title">🛠️ Monitoring & Insight Pelanggan Bengkel</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Data real-time dari database pelanggan Honda • Update otomatis</div>', unsafe_allow_html=True)
 
-# ==================== KONEKSI GOOGLE SHEETS ====================
+# ==================== KONEKSI DATA ====================
 url = "https://docs.google.com/spreadsheets/d/1wGEojxqModICUSxRIgCONuiLRIyrEhMGRDWsmxWXjng/edit?usp=sharing"
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 try:
     df = conn.read(spreadsheet=url)
     df.columns = df.columns.str.strip()
-
-    # Konversi tanggal
     df['Tgl Service Terakhir'] = pd.to_datetime(df['Tgl Service Terakhir'], errors='coerce')
     df['Tahun Rakit'] = pd.to_numeric(df['Tahun Rakit'], errors='coerce')
 
-    # Hitung umur motor (tahun)
-    current_year = datetime.now().year
-    df['Umur Motor (Tahun)'] = current_year - df['Tahun Rakit']
-
-    # Logika filter servis
     hari_ini = datetime.now()
     batas_servis = hari_ini - timedelta(days=60)
     perlu_servis = df[df['Tgl Service Terakhir'] <= batas_servis].copy()
     perlu_servis['Terlambat (Hari)'] = (hari_ini - perlu_servis['Tgl Service Terakhir']).dt.days
 
-    # ==================== METRIK UTAMA (CARD STYLE) ====================
+    # ==================== METRIC CARDS (Glass Style) ====================
     with st.container():
         st.markdown("<div class='card'>", unsafe_allow_html=True)
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Total Pelanggan", f"{len(df):,}")
-        col2.metric("Perlu Servis (>60 Hari)", f"{len(perlu_servis):,}", 
-                    delta=f"{len(perlu_servis)/len(df)*100:.1f}%" if len(df)>0 else "0%")
-        col3.metric("Rata-rata Keterlambatan", 
-                    f"{int(perlu_servis['Terlambat (Hari)'].mean()) if not perlu_servis.empty else 0} Hari")
-        col4.metric("Servis Bulan Ini", len(df[df['Tgl Service Terakhir'].dt.month == hari_ini.month]))
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    st.divider()
-
-    # ==================== RINGKASAN STATISTIK DALAM TABEL ====================
-    with st.container():
-        st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.subheader("📈 Ringkasan Statistik Database Pelanggan")
-
-        stats_data = {
-            "Metrik": [
-                "Total Pelanggan Terdaftar",
-                "Model Motor Terbanyak",
-                "Kecamatan Dominan",
-                "Rata-rata Umur Motor",
-                "Frekuensi Servis Tertinggi",
-                "Tahun Rakit Terbanyak"
-            ],
-            "Nilai": [
-                f"{len(df):,}",
-                df['Market Name'].mode()[0] if not df['Market Name'].empty else "-",
-                df['Kecamatan'].mode()[0] if 'Kecamatan' in df.columns else "-",
-                f"{df['Umur Motor (Tahun)'].mean():.1f} tahun" if not df['Umur Motor (Tahun)'].isnull().all() else "-",
-                f"{df['Freq of Visit'].max()} kali" if 'Freq of Visit' in df.columns else "-",
-                f"{int(df['Tahun Rakit'].mode()[0])}" if not df['Tahun Rakit'].empty else "-"
-            ]
-        }
-        stats_df = pd.DataFrame(stats_data)
-        st.table(stats_df)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    st.divider()
-
-    # ==================== VISUALISASI INSIGHT ====================
-    with st.container():
-        st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.subheader("📊 Visualisasi Insight Pelanggan")
-
-        c1, c2 = st.columns(2)
-
-        with c1:
-            # Pie Chart - Model Motor
-            top_models = df['Market Name'].value_counts().head(8)
-            fig_pie = px.pie(values=top_models.values, names=top_models.index,
-                             title="Distribusi Model Motor (Top 8)",
-                             color_discrete_sequence=px.colors.sequential.Reds_r)
-            fig_pie.update_traces(textposition='inside', textinfo='percent+label')
-            st.plotly_chart(fig_pie, use_container_width=True)
-
-            # Bar Chart - Kecamatan
-            if 'Kecamatan' in df.columns:
-                top_kec = df['Kecamatan'].value_counts().head(10)
-                fig_bar_kec = px.bar(x=top_kec.index, y=top_kec.values,
-                                     labels={'x': 'Kecamatan', 'y': 'Jumlah Pelanggan'},
-                                     title="Top 10 Kecamatan Pelanggan",
-                                     color=top_kec.values,
-                                     color_continuous_scale='Reds')
-                st.plotly_chart(fig_bar_kec, use_container_width=True)
-
-        with c2:
-            # Bar Chart - Tren Bulanan
-            df_trend = df.resample('M', on='Tgl Service Terakhir').size().reset_index(name='Jumlah Servis')
-            fig_trend = px.area(df_trend, x='Tgl Service Terakhir', y='Jumlah Servis',
-                                title="Tren Kedatangan Servis (Bulanan)",
-                                color_discrete_sequence=['#FF4B4B'])
-            st.plotly_chart(fig_trend, use_container_width=True)
-
-            # Histogram Tahun Rakit
-            fig_hist = px.histogram(df, x='Tahun Rakit', nbins=15,
-                                    title="Distribusi Tahun Rakit Motor",
-                                    color_discrete_sequence=['#FF6B6B'])
-            fig_hist.update_layout(bargap=0.2)
-            st.plotly_chart(fig_hist, use_container_width=True)
-
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    st.divider()
-
-    # ==================== DAFTAR FOLLOW UP WHATSAPP ====================
-    with st.container():
-        st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.subheader("📲 Daftar Pelanggan yang Perlu Dihubungi (Waktunya Servis)")
-
-        if not perlu_servis.empty:
-            def create_wa_link(row):
-                pesan = f"Halo {row['Nama']}, motor {row.get('Market Name', 'Anda')} ({row['Nopol']}) sudah waktunya servis kembali. Terakhir servis {row['Tgl Service Terakhir'].strftime('%d %b %Y')}. Yuk agendakan ke bengkel secepatnya! 🛵"
-                nomor = str(row['No HP1']).replace('.0', '').strip()
-                if nomor.startswith('0'):
-                    nomor = '62' + nomor[1:]
-                elif not nomor.startswith('62'):
-                    nomor = '62' + nomor
-                return f"https://wa.me/{nomor}?text={pesan.replace(' ', '%20')}"
-
-            perlu_servis['WhatsApp'] = perlu_servis.apply(create_wa_link, axis=1)
-
-            display_df = perlu_servis[['Nama', 'Nopol', 'Market Name', 'Tgl Service Terakhir', 
-                                       'Terlambat (Hari)', 'WhatsApp']].sort_values(by="Terlambat (Hari)", ascending=False)
-
-            st.write("Klik tombol **Kirim Pesan 🟢** untuk langsung chat via WhatsApp:")
-
-            st.data_editor(
-                display_df,
-                column_config={
-                    "WhatsApp": st.column_config.LinkColumn(
-                        "Hubungi Sekarang",
-                        display_text="Kirim Pesan 🟢",
-                        width="medium"
-                    ),
-                    "Tgl Service Terakhir": st.column_config.DateColumn("Terakhir Servis"),
-                    "Terlambat (Hari)": st.column_config.NumberColumn("Keterlambatan", format="%d hari")
-                },
-                hide_index=True,
-                use_container_width=True
-            )
-        else:
-            st.success("🎉 **Luar biasa!** Semua pelanggan sudah rutin servis dalam 60 hari terakhir.")
+        
+        with col1:
+            st.markdown("""
+                <div class='metric-card'>
+                    <div class='metric-label'>📊 Total Pelanggan</div>
+                    <div class='metric-value'>{:_,}</div>
+                </div>
+            """.format(len(df)), unsafe_allow_html=True)
+        
+        with col2:
+            persen_perlu = len(perlu_servis)/len(df)*100 if len(df)>0 else 0
+            st.markdown(f"""
+                <div class='metric-card' style='background: linear-gradient(135deg, rgba(200, 50, 50, 0.4), rgba(200, 100, 50, 0.3));'>
+                    <div class='metric-label'>⚠️ Perlu Servis (>60 Hari)</div>
+                    <div class='metric-value'>{:_,}</div>
+                    <div class='metric-delta'>↑ {persen_perlu:.1f}% dari total</div>
+                </div>
+            """.format(len(perlu_servis)), unsafe_allow_html=True)
+        
+        with col3:
+            avg_delay = int(perlu_servis['Terlambat (Hari)'].mean()) if not perlu_servis.empty else 0
+            st.markdown(f"""
+                <div class='metric-card' style='background: linear-gradient(135deg, rgba(180, 80, 200, 0.3), rgba(100, 50, 200, 0.4));'>
+                    <div class='metric-label'>⏱ Rata-rata Keterlambatan</div>
+                    <div class='metric-value'>{avg_delay}</div>
+                    <div class='metric-label' style='font-size:0.9rem; margin-top:8px;'>Hari</div>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            servis_bulan_ini = len(df[df['Tgl Service Terakhir'].dt.month == hari_ini.month])
+            st.markdown(f"""
+                <div class='metric-card' style='background: linear-gradient(135deg, rgba(50, 200, 100, 0.3), rgba(50, 150, 200, 0.4));'>
+                    <div class='metric-label'>🔧 Servis Bulan Ini</div>
+                    <div class='metric-value'>{servis_bulan_ini}</div>
+                </div>
+            """, unsafe_allow_html=True)
         
         st.markdown("</div>", unsafe_allow_html=True)
 
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ==================== VISUALISASI RINGKAS ====================
+    with st.container():
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.subheader("📊 Insight Cepat")
+
+        c1, c2, c3 = st.columns(3)
+
+        with c1:
+            top_model = df['Market Name'].value_counts().head(1)
+            st.markdown(f"""
+                <div class='metric-card' style='background: linear-gradient(135deg, rgba(255, 100, 100, 0.3), rgba(255, 150, 50, 0.3)); height:180px;'>
+                    <div style='font-size:1.1rem; color:#ddd;'>🏍️ Model Terbanyak</div>
+                    <div style='font-size:1.8rem; font-weight:700; margin:16px 0;'>{top_model.index[0]}</div>
+                    <div style='color:#aaa;'>{top_model.values[0]:,} unit</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with c2:
+            if 'Kecamatan' in df.columns:
+                top_kec = df['Kecamatan'].value_counts().head(1)
+                st.markdown(f"""
+                    <div class='metric-card' style='background: linear-gradient(135deg, rgba(100, 200, 255, 0.3), rgba(50, 100, 200, 0.4)); height:180px;'>
+                        <div style='font-size:1.1rem; color:#ddd;'>📍 Kecamatan Dominan</div>
+                        <div style='font-size:1.8rem; font-weight:700; margin:16px 0;'>{top_kec.index[0]}</div>
+                        <div style='color:#aaa;'>{top_kec.values[0]:,} pelanggan</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+        with c3:
+            umur_rata = (datetime.now().year - df['Tahun Rakit'].mean()) if not df['Tahun Rakit'].isnull().all() else 0
+            st.markdown(f"""
+                <div class='metric-card' style='background: linear-gradient(135deg, rgba(150, 200, 50, 0.3), rgba(100, 200, 100, 0.4)); height:180px;'>
+                    <div style='font-size:1.1rem; color:#ddd;'>🗓️ Rata-rata Umur Motor</div>
+                    <div style='font-size:2.5rem; font-weight:700; margin:16px 0;'>{umur_rata:.1f}</div>
+                    <div style='color:#aaa;'>Tahun</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        # Tren Bulanan Kecil
+        st.markdown("<br>", unsafe_allow_html=True)
+        df_trend = df.resample('M', on='Tgl Service Terakhir').size().reset_index(name='Jumlah')
+        fig_trend = px.area(df_trend, x='Tgl Service Terakhir', y='Jumlah',
+                            color_discrete_sequence=['#ff4b4b'], height=300)
+        fig_trend.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+                                font_color='#ffffff', margin=dict(l=20,r=20,t=40,b=20))
+        st.plotly_chart(fig_trend, use_container_width=True)
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ==================== FOLLOW UP (Opsional bisa ditambah lagi) ====================
+    with st.container():
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.subheader("📲 Pelanggan Prioritas Follow Up")
+        if not perlu_servis.empty:
+            st.info(f"Ada **{len(perlu_servis):,} pelanggan** yang sudah lebih dari 60 hari belum servis. Siap untuk reminder WhatsApp!")
+            # Bisa ditambah tabel link WA seperti sebelumnya jika perlu
+        else:
+            st.success("🎉 Semua pelanggan rutin servis dalam 60 hari terakhir!")
+        st.markdown("</div>", unsafe_allow_html=True)
+
 except Exception as e:
-    st.error(f"⚠️ Terjadi kesalahan saat memuat data: {e}")
-    st.info("Pastikan Google Sheet dapat diakses publik (share link dengan 'Anyone with the link') dan nama kolom sesuai.")
+    st.error(f"Error: {e}")
+    st.info("Pastikan Google Sheet dibagikan dengan 'Anyone with the link' dan kolom sesuai.")

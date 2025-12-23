@@ -94,26 +94,30 @@ try:
         st.markdown("<div class='card'>", unsafe_allow_html=True)
         col1, col2, col3, col4 = st.columns(4)
         
+        total_pelanggan = len(df)
+        jumlah_perlu_servis = len(perlu_servis)
+        persen_perlu = jumlah_perlu_servis / total_pelanggan * 100 if total_pelanggan > 0 else 0
+        avg_delay = int(perlu_servis['Terlambat (Hari)'].mean()) if not perlu_servis.empty else 0
+        servis_bulan_ini = len(df[df['Tgl Service Terakhir'].dt.month == hari_ini.month])
+        
         with col1:
-            st.markdown("""
+            st.markdown(f"""
                 <div class='metric-card'>
                     <div class='metric-label'>📊 Total Pelanggan</div>
-                    <div class='metric-value'>{:_,}</div>
+                    <div class='metric-value'>{total_pelanggan:,}</div>
                 </div>
-            """.format(len(df)), unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
         
         with col2:
-            persen_perlu = len(perlu_servis)/len(df)*100 if len(df)>0 else 0
             st.markdown(f"""
                 <div class='metric-card' style='background: linear-gradient(135deg, rgba(200, 50, 50, 0.4), rgba(200, 100, 50, 0.3));'>
                     <div class='metric-label'>⚠️ Perlu Servis (>60 Hari)</div>
-                    <div class='metric-value'>{:_,}</div>
+                    <div class='metric-value'>{jumlah_perlu_servis:,}</div>
                     <div class='metric-delta'>↑ {persen_perlu:.1f}% dari total</div>
                 </div>
-            """.format(len(perlu_servis)), unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
         
         with col3:
-            avg_delay = int(perlu_servis['Terlambat (Hari)'].mean()) if not perlu_servis.empty else 0
             st.markdown(f"""
                 <div class='metric-card' style='background: linear-gradient(135deg, rgba(180, 80, 200, 0.3), rgba(100, 50, 200, 0.4));'>
                     <div class='metric-label'>⏱ Rata-rata Keterlambatan</div>
@@ -123,17 +127,14 @@ try:
             """, unsafe_allow_html=True)
         
         with col4:
-            servis_bulan_ini = len(df[df['Tgl Service Terakhir'].dt.month == hari_ini.month])
             st.markdown(f"""
                 <div class='metric-card' style='background: linear-gradient(135deg, rgba(50, 200, 100, 0.3), rgba(50, 150, 200, 0.4));'>
                     <div class='metric-label'>🔧 Servis Bulan Ini</div>
-                    <div class='metric-value'>{servis_bulan_ini}</div>
+                    <div class='metric-value'>{servis_bulan_ini:,}</div>
                 </div>
             """, unsafe_allow_html=True)
         
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)True)
 
     # ==================== VISUALISASI RINGKAS ====================
     with st.container():
@@ -198,3 +199,4 @@ try:
 except Exception as e:
     st.error(f"Error: {e}")
     st.info("Pastikan Google Sheet dibagikan dengan 'Anyone with the link' dan kolom sesuai.")
+

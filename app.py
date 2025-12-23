@@ -134,7 +134,7 @@ try:
                 </div>
             """, unsafe_allow_html=True)
         
-        st.markdown("</div>", unsafe_allow_html=True)True)
+        st.markdown("</div>", unsafe_allow_html=True)  # <--- Ini yang benar, tanpa True ekstra!
 
     # ==================== VISUALISASI RINGKAS ====================
     with st.container():
@@ -199,4 +199,5 @@ try:
 except Exception as e:
     st.error(f"Error: {e}")
     st.info("Pastikan Google Sheet dibagikan dengan 'Anyone with the link' dan kolom sesuai.")
+
 
